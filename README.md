@@ -66,6 +66,12 @@ Providers → Local Models (same rows, wording, icons, pills and toasts):
 - **Find more models**: ds4 runs only its own models, so there is no search;
   **Add model file** opens the native file dialog and links a `.gguf` you
   already have, without copying it. **Forget** removes only the link.
+- **Storage**: what DwarfStar keeps on disk, as a bar and a row per kind
+  (downloaded models, the prompt cache, the engine) with its size and a button
+  to clear it, plus **Remove everything**. Do that before you uninstall the
+  plugin: Hermes keeps a plugin's data when you remove it, so the models and
+  the prompt cache would otherwise stay on your disk. Files you added from
+  disk are never deleted.
 
 **A provider**, `ds4` ("DwarfStar (ds4)" in the model picker):
 

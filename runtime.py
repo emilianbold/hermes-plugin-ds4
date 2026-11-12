@@ -16,6 +16,7 @@ binaries; the pin below is the one commit this plugin was tested with.
 from __future__ import annotations
 
 import atexit
+import contextlib
 import fcntl
 import hashlib
 import http.client
@@ -24,6 +25,7 @@ import os
 import platform
 import re
 import shutil
+import stat
 import subprocess
 import tarfile
 import tempfile
@@ -521,6 +523,114 @@ def discard_partial(model_id: str) -> None:
         raise RuntimeError("This model is still downloading. Pause the download first.") from None
 
 
+# ── Storage ────────────────────────────────────────────────────────────────
+# Hermes keeps plugin-data/<plugin>/ when a plugin is removed (there is no uninstall hook), so what
+# this plugin stored (tens of GB of models, a prompt cache with your prompts in it) would stay behind.
+# The page shows it and offers to clear it.
+def _size(path: Path) -> int:
+    """Bytes of the files under *path*. A link counts for nothing: a linked model is the user's file."""
+    if path.is_symlink() or not path.exists():
+        return 0
+    if path.is_file():
+        return path.lstat().st_size
+    total = 0
+    for dirpath, _dirs, files in os.walk(path, followlinks=False):
+        for name in files:
+            try:
+                info = os.lstat(os.path.join(dirpath, name))
+            except OSError:
+                continue
+            total += info.st_size if stat.S_ISREG(info.st_mode) else 0
+    return total
+
+
+def storage() -> dict:
+    """What this plugin keeps on disk, in bytes: the engine, models Hermes downloaded (linked files
+    excluded), the prompt cache and the logs."""
+    return {"engine": _size(root() / "engine"), "models": _size(models_dir()), "cache": _size(root() / "kv"),
+            "logs": _size(root() / "server.log") + _size(root() / "engine-build.log")}
+
+
+def _empty(path: Path) -> None:
+    """Delete what is inside *path* and the directory itself. Links are removed, never followed."""
+    if path.is_symlink():
+        path.unlink()
+        return
+    if not path.is_dir():
+        return
+    for child in path.iterdir():
+        if child.is_symlink() or child.is_file():
+            child.unlink()
+        else:
+            shutil.rmtree(child)
+    path.rmdir()
+
+
+def _remove_downloaded_models(*, links_too: bool) -> int:
+    """Delete the model files this plugin downloaded (and unfinished downloads); return the bytes freed.
+    A link to a file the user added is theirs: it goes only when *links_too*, and its target never does."""
+    freed = 0
+    if not models_dir().is_dir():
+        return 0
+    for child in list(models_dir().iterdir()):
+        if child.is_symlink():
+            if links_too:
+                child.unlink()
+        elif child.is_file():
+            freed += child.stat().st_size
+            child.unlink()
+    if links_too:
+        _empty(models_dir())
+    return freed
+
+
+STORAGE_KINDS = ("cache", "models", "engine", "all")
+
+
+def clear_storage(what: str) -> int:
+    """Delete one kind of stored data and return the bytes freed.
+
+    ``cache``: ds4's prompt cache (it holds prompt text; ds4 wants the server stopped first).
+    ``models``: the models this plugin downloaded; files the user added are only ever unlinked.
+    ``engine``: ds4-server; setup installs it again.
+    ``all``: all of that plus logs and preferences, so uninstalling the plugin leaves nothing behind
+    (Hermes keeps a plugin's data when it is removed and has no uninstall hook).
+    The server is stopped first; models and engine are refused while a download or install runs."""
+    if what not in STORAGE_KINDS:
+        raise ValueError(f"unknown kind of data: {what}")
+    with contextlib.ExitStack() as busy:
+        try:
+            if what in ("engine", "all"):
+                busy.enter_context(_exclusive("engine", wait=False))
+            if what in ("models", "all"):
+                for entry in catalog():
+                    busy.enter_context(_exclusive(f"download-{entry['id']}", wait=False))
+        except BlockingIOError:
+            raise RuntimeError("An install or a download is running. Pause it first.") from None
+        with _exclusive("server"):
+            state = running()
+            if state:
+                _stop(state)
+            freed = 0
+            if what in ("cache", "all"):
+                freed += _size(root() / "kv")
+                _empty(root() / "kv")
+            if what in ("engine", "all"):
+                freed += _size(root() / "engine")
+                _empty(root() / "engine")
+            if what in ("models", "all"):
+                freed += _remove_downloaded_models(links_too=what == "all")
+            if what == "all":
+                for name in ("server.log", "engine-build.log"):
+                    freed += _size(root() / name)
+                for name in ("server.log", "engine-build.log", "preferences.json", "server.json", "activity"):
+                    (root() / name).unlink(missing_ok=True)
+            elif what in ("models", "engine"):
+                # Nothing left to load: the runtime goes back to off, and a model that is gone is not the default.
+                set_preferences(enabled=False, **({"active": None} if what == "models" else {}))
+    return freed
+
+
 # ── Server ─────────────────────────────────────────────────────────────────
 def running() -> dict | None:
     """The ds4-server this plugin started, if that very process is still alive."""
@@ -745,5 +855,5 @@ def status() -> dict:
                    "prebuilt": _engine_asset() is not None},
         "server": {"running": state is not None, "model": state["model"] if state else None,
                    "base_url": base_url(), "ctx": state["ctx"] if state else None},
-        "models": models, "models_dir": str(models_dir()),
+        "models": models, "models_dir": str(models_dir()), "storage": storage(),
     }

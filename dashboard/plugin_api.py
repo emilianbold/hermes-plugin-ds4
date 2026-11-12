@@ -54,6 +54,10 @@ class JobBody(BaseModel):
     job_id: str
 
 
+class StorageBody(BaseModel):
+    what: str = Field(pattern=r"^(cache|models|engine|all)$")
+
+
 class Jobs:
     """Background operations of this process, newest last. A restarted Hermes starts with none:
     a download it interrupted shows as a partial file and resumes from the model's row."""
@@ -203,6 +207,12 @@ def create_router(runtime=None, save_default_model=_save_default_model) -> APIRo
         """Unload the model to free its memory. Unlike Turn off, the next message loads it again."""
         guarded(lambda: rt().stop())
         return {"ok": True}
+
+    @api.post("/storage/clear")
+    def storage_clear(body: StorageBody):
+        """Delete one kind of stored data (or all of it) and say how much that freed. Hermes keeps a
+        plugin's data when the plugin is uninstalled, so this is how to clean up first."""
+        return {"freed_bytes": guarded(lambda: rt().clear_storage(body.what))}
 
     @api.post("/jobs/cancel")
     def jobs_cancel(body: JobBody):

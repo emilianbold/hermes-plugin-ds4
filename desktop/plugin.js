@@ -101,6 +101,34 @@ const copy = {
   forgotten: model => `${model} forgotten.`,
   forgetFailed: 'Forget failed',
   linkedPill: 'Added from disk',
+  storageTitle: 'Storage',
+  storageBarLabel: total => `DwarfStar uses ${total} on this Mac`,
+  storageKinds: {
+    models: {
+      title: 'Downloaded models',
+      detail: 'Models Hermes downloaded. Files you added from disk are not counted here and are never touched.',
+      action: 'Remove all',
+      confirm: size => `Remove all downloaded models (${size})? They are deleted from this Mac, and downloading them again takes a while.`
+    },
+    cache: {
+      title: 'Prompt cache',
+      detail: 'Recent conversations ds4 keeps on disk so a model can pick up where it left off. It contains your prompts.',
+      action: 'Clear',
+      confirm: size => `Clear the prompt cache (${size})? It is rebuilt as you chat.`
+    },
+    engine: {
+      title: 'Engine',
+      detail: 'The ds4 server program. Setup installs it again when it is needed.',
+      action: 'Remove',
+      confirm: size => `Remove the ds4 engine (${size})? Setup installs it again when you need it.`
+    }
+  },
+  storageAllTitle: 'Remove everything',
+  storageAllDetail: 'Deletes all of the above, the logs and the settings, so nothing is left behind. Hermes keeps a plugin\'s data when you uninstall it, so do this first if you are removing DwarfStar. Files you added from disk are kept.',
+  storageAllAction: 'Remove everything',
+  storageAllConfirm: size => `Remove everything DwarfStar stored (${size})? This deletes the engine, the downloaded models and the prompt cache. Files you added from disk are kept. If DwarfStar is your default model, choose another one afterwards.`,
+  storageCleared: freed => `Freed ${gb(freed)}.`,
+  storageClearFailed: 'Could not free the space',
   originTip: (origin, repo) => `${origin}. Downloaded from Hugging Face: ${repo}.`,
   linkedTip: path => `${path ? `Linked to ${path}. ` : ''}Hermes never copies or deletes this file.`
 }
@@ -385,6 +413,42 @@ function Hero({ job, heroModel, failed, onConfigure, run, stageOf }) {
   })
 }
 
+// What the plugin keeps on disk, like a phone's Storage page: one bar, then a row per kind of data with
+// its size and a button. Hermes keeps a plugin's data when the plugin is uninstalled, so this is where
+// the user cleans up first.
+const STORAGE_KINDS = ['models', 'cache', 'engine']
+const STORAGE_COLORS = { models: 'bg-primary', cache: 'bg-amber-500', engine: 'bg-emerald-500' }
+
+const storageTotal = storage => STORAGE_KINDS.reduce((sum, kind) => sum + (storage?.[kind] ?? 0), 0) + (storage?.logs ?? 0)
+
+function StorageSection({ storage, disabled, onClear }) {
+  const total = storageTotal(storage)
+  const sizeAndButton = (size, label, onClick, empty) => jsxs('div', { className: 'flex items-center justify-end gap-3', children: [
+    jsx('span', { className: 'text-[0.75rem] tabular-nums text-muted-foreground', children: gb(size) }),
+    jsxs(Button, { size: 'sm', variant: 'outline', disabled: disabled || empty, onClick, children: [ico('Trash2'), label] })
+  ] })
+
+  return jsxs(Section, {
+    icon: 'Package', title: copy.storageTitle, meta: gb(total),
+    children: [
+      jsx('div', {
+        role: 'img', 'aria-label': copy.storageBarLabel(gb(total)),
+        className: 'mb-2 flex h-2 w-full overflow-hidden rounded-full bg-muted',
+        children: STORAGE_KINDS.filter(kind => storage[kind] > 0).map(kind =>
+          jsx('div', { className: STORAGE_COLORS[kind], style: { width: `${100 * storage[kind] / total}%` } }, kind))
+      }),
+      ...STORAGE_KINDS.map(kind => jsx(ListRow, {
+        title: copy.storageKinds[kind].title, description: copy.storageKinds[kind].detail,
+        action: sizeAndButton(storage[kind], copy.storageKinds[kind].action, () => onClear(kind), !storage[kind])
+      }, kind)),
+      jsx(ListRow, {
+        title: copy.storageAllTitle, description: copy.storageAllDetail,
+        action: sizeAndButton(total, copy.storageAllAction, () => onClear('all'), !total)
+      }, 'all')
+    ]
+  })
+}
+
 function Page({ ctx, connectionId, profile, epoch }) {
   const client = useQueryClient()
   const queryKey = ['ds4', 'status', connectionId, profile, epoch]
@@ -464,6 +528,13 @@ function Page({ ctx, connectionId, profile, epoch }) {
     await act('/models/delete', { model_id: model.id }, linked
       ? { ok: copy.forgotten(model.name), fail: copy.forgetFailed }
       : { ok: copy.removed(model.name), fail: copy.removeFailed })
+  }
+
+  const clearStorage = async kind => {
+    const size = gb(kind === 'all' ? storageTotal(data.storage) : data.storage[kind])
+    const question = kind === 'all' ? copy.storageAllConfirm(size) : copy.storageKinds[kind].confirm(size)
+    if (!window.confirm(question)) return
+    await act('/storage/clear', { what: kind }, { ok: result => copy.storageCleared(result.freed_bytes), fail: copy.storageClearFailed })
   }
 
   const jobs = data?.jobs ?? []
@@ -560,7 +631,10 @@ function Page({ ctx, connectionId, profile, epoch }) {
           children: [ico('FolderOpen', 'mr-1 size-3.5'), copy.sideloadButton]
         }),
         children: jsx('p', { className: 'py-1 text-[length:var(--conversation-caption-font-size)] text-muted-foreground', children: copy.browseHint })
-      }, 'browse')
+      }, 'browse'),
+      storageTotal(data.storage) > 0 && jsx(StorageSection, {
+        storage: data.storage, disabled: busy || running.length > 0, onClear: clearStorage
+      }, 'storage')
     )
   }
 
