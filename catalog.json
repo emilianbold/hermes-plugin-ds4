@@ -2,7 +2,11 @@
   "schema_version": 2,
   "engine": {
     "commit": "b3f50180ec2c7324892be1f50bc83555ccb8d5e7",
-    "darwin-arm64": {"url": "", "sha256": "", "size_bytes": 0}
+    "darwin-arm64": {
+      "url": "https://github.com/emilianbold/hermes-plugin-ds4/releases/download/engine-b3f50180ec2c/ds4-engine-b3f50180ec2c-darwin-arm64.tar.gz",
+      "sha256": "78a6c7538bccf3f63cec28fc216b6f410e2fd1d8015411bf062c4d53228d3633",
+      "size_bytes": 1666710
+    }
   },
   "_comment": [
     "ds4 only runs its own GGUFs, so this list is short and follows https://dwarfstar.sh/hardware/.",
