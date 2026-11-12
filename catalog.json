@@ -1,0 +1,60 @@
+{
+  "schema_version": 2,
+  "engine": {
+    "commit": "b3f50180ec2c7324892be1f50bc83555ccb8d5e7",
+    "darwin-arm64": {"url": "", "sha256": "", "size_bytes": 0}
+  },
+  "_comment": [
+    "ds4 only runs its own GGUFs, so this list is short and follows https://dwarfstar.sh/hardware/.",
+    "resident_gib is ds4's own memory plan (`ds4: memory: ... planned`) at the launch context; measured is true when it was read from a real run.",
+    "recommended_ram_gib is [from, up to): the machine memory class this model is the suggestion for. min_ram_gib: the least memory it is worth offering on.",
+    "revision pins the Hugging Face repo commit the size and SHA-256 were read from."
+  ],
+  "models": [
+    {
+      "id": "ds4f-q2",
+      "name": "DeepSeek V4 Flash (Q2)",
+      "description": "ds4's baseline: fast, fully in memory.",
+      "origin": "DeepSeek V4 Flash by DeepSeek (MIT), quantised by antirez for ds4",
+      "repo": "antirez/deepseek-v4-gguf",
+      "revision": "f71f23d552d664e523b422157b2befbf74040380",
+      "file": "DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix-0731.gguf",
+      "size_bytes": 86720111488,
+      "sha256": "ca22ae2f838e14077c22bc1c1417b71b45b5e5a3687bd96c2ac6e17fdb6261c0",
+      "resident_gib": 83.5,
+      "measured": true,
+      "recommended_ram_gib": [96, 256],
+      "launch": {"ctx": 100000, "args": []}
+    },
+    {
+      "id": "ds41f-q2",
+      "name": "DeepSeek V4.1 Flash (Q2)",
+      "description": "Stronger and slower: streams its experts from the SSD, so it needs a fast local SSD.",
+      "origin": "DeepSeek V4.1 Flash by DeepSeek (MIT), quantised by antirez for ds4",
+      "repo": "antirez/deepseek-v4.1-flash-gguf",
+      "revision": "9dcee51692e6540f697141fc98b097e3c96492a3",
+      "file": "DeepSeek-V4.1-Flash-Q2.gguf",
+      "size_bytes": 365713686528,
+      "sha256": "1ce6a8f8806205c13330d7ca287bd198331dc5ca35ccc5d8a9a92a188a6f6f42",
+      "resident_gib": 93.3,
+      "measured": true,
+      "streaming": true,
+      "launch": {"ctx": 65536, "args": ["--ssd-streaming"]}
+    },
+    {
+      "id": "ds4f-q4",
+      "name": "DeepSeek V4 Flash (Q4)",
+      "description": "Higher quality, fully in memory. For Macs with 256 GB or more.",
+      "origin": "DeepSeek V4 Flash by DeepSeek (MIT), quantised by antirez for ds4",
+      "repo": "antirez/deepseek-v4-gguf",
+      "revision": "f71f23d552d664e523b422157b2befbf74040380",
+      "file": "DeepSeek-V4-Flash-Q4KExperts-F16HC-F16Compressor-F16Indexer-Q8Attn-Q8Shared-Q8Out-chat-v2-imatrix-0731.gguf",
+      "size_bytes": 164633502592,
+      "sha256": "6bb77b5ddcbc2d974c687cfb63d644ecfb295581b4a53fa4c1d810aea538254a",
+      "resident_gib": 156,
+      "measured": false,
+      "recommended_ram_gib": [256, null],
+      "launch": {"ctx": 100000, "args": []}
+    }
+  ]
+}

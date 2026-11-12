@@ -1,0 +1,146 @@
+name: Build the ds4 engine
+
+# Builds antirez/ds4's ds4-server from source at ONE pinned commit on a GitHub-hosted Apple Silicon
+# runner and publishes it as a release asset, so the plugin can download a binary that GitHub's logs
+# show was built from that commit, instead of every user compiling it. Nothing here is signed or
+# notarised by Apple; the plugin checks the archive's SHA-256 (pinned in catalog.json) before using it.
+#
+# Run it by hand: Actions -> Build the ds4 engine -> Run workflow. It builds the commit pinned by
+# ENGINE_COMMIT in runtime.py unless you give another one. Then copy the printed URL, size and SHA-256
+# into the "engine" entry of catalog.json.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ds4_commit:
+        description: "ds4 commit to build (40 hex characters). Empty: the one runtime.py pins."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15   # Apple Silicon (arm64)
+    timeout-minutes: 30
+    permissions:
+      contents: write      # publish the release
+      id-token: write      # provenance attestation (public repositories only)
+      attestations: write
+    env:
+      # The Makefile's default is -mcpu=native, which here would be the runner's chip. An explicit
+      # baseline builds one binary every Apple Silicon Mac can run.
+      CPU_FLAG: -mcpu=apple-m1
+      INPUT_COMMIT: ${{ inputs.ds4_commit }}
+    steps:
+      - name: Check out the plugin
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: plugin
+          persist-credentials: false
+
+      - name: Pick the commit to build
+        id: pin
+        run: |
+          sha="$INPUT_COMMIT"
+          if [ -z "$sha" ]; then
+            sha=$(sed -n 's/^ENGINE_COMMIT = "\([0-9a-f]\{40\}\)".*/\1/p' plugin/runtime.py)
+          fi
+          case "$sha" in
+            *[!0-9a-f]*|"") echo "not a commit id: '$sha'" >&2; exit 1 ;;
+          esac
+          [ ${#sha} -eq 40 ] || { echo "not a 40-character commit id: '$sha'" >&2; exit 1; }
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "short=${sha:0:12}" >> "$GITHUB_OUTPUT"
+
+      - name: Check out ds4 at that commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: antirez/ds4
+          ref: ${{ steps.pin.outputs.sha }}
+          path: ds4
+          persist-credentials: false
+
+      - name: Check that the checkout is exactly that commit
+        env:
+          WANT: ${{ steps.pin.outputs.sha }}
+        run: |
+          have=$(git -C ds4 rev-parse HEAD)
+          [ "$have" = "$WANT" ] || { echo "checked out $have, wanted $WANT" >&2; exit 1; }
+
+      - name: Build ds4-server
+        working-directory: ds4
+        run: make -j"$(sysctl -n hw.ncpu)" NATIVE_CPU_FLAG="$CPU_FLAG" ds4-server
+
+      - name: Smoke test, and check what it links
+        working-directory: ds4
+        run: |
+          ./ds4-server --help | head -5
+          file ds4-server
+          otool -L ds4-server
+          # Only Apple's own libraries: nothing from this runner's Homebrew or /usr/local.
+          if otool -L ds4-server | tail -n +2 | grep -v -e '^[[:space:]]*/usr/lib/' -e '^[[:space:]]*/System/Library/'; then
+            echo "ds4-server links something that is not part of macOS" >&2
+            exit 1
+          fi
+          lipo -archs ds4-server | grep -qx arm64
+
+      - name: Package
+        id: pack
+        env:
+          SHA: ${{ steps.pin.outputs.sha }}
+          SHORT: ${{ steps.pin.outputs.short }}
+          RUNNER_IMAGE: ${{ runner.name }} ${{ runner.os }} ${{ runner.arch }}
+        run: |
+          name="ds4-engine-${SHORT}-darwin-arm64"
+          mkdir -p "pack/$name/licenses" "pack/$name/third_party/iris"
+          cp ds4/ds4-server "pack/$name/"
+          cp -R ds4/metal "pack/$name/metal"
+          cp ds4/LICENSE "pack/$name/LICENSE"
+          # Notices of what is compiled into ds4-server besides ds4 itself (see engine-NOTICE.txt).
+          # rax.c's BSD-3 notice is the first comment of the file; iris is MIT with its own LICENSE.
+          sed -n '1,/\*\//p' ds4/rax.c > "pack/$name/licenses/rax-BSD-3-Clause.txt"
+          cp ds4/third_party/iris/LICENSE "pack/$name/third_party/iris/LICENSE"
+          grep -q "Redistribution and use in source and binary forms" "pack/$name/licenses/rax-BSD-3-Clause.txt"
+          test -s "pack/$name/third_party/iris/LICENSE"
+          sed "s/@COMMIT@/$SHA/" plugin/.github/engine-NOTICE.txt > "pack/$name/NOTICE"
+          {
+            echo "ds4-server built from https://github.com/antirez/ds4 at commit $SHA"
+            echo "Built by GitHub Actions ($GITHUB_REPOSITORY, run $GITHUB_RUN_ID, $RUNNER_IMAGE) with: make NATIVE_CPU_FLAG=$CPU_FLAG ds4-server"
+            echo "Unofficial build: not made, signed or endorsed by the ds4 project. ds4 is MIT licensed, see LICENSE."
+          } > "pack/$name/BUILD-INFO.txt"
+          # Metal reads ds4's .metal sources from ./metal at run time: the archive keeps that layout.
+          COPYFILE_DISABLE=1 tar -C pack -czf "$name.tar.gz" "$name"
+          shasum -a 256 "$name.tar.gz" | tee "$name.tar.gz.sha256"
+          echo "archive=$name.tar.gz" >> "$GITHUB_OUTPUT"
+          echo "size=$(stat -f %z "$name.tar.gz")" >> "$GITHUB_OUTPUT"
+
+      - name: Attest where the archive came from
+        # Artifact attestations need a public repository (or GitHub Enterprise).
+        if: ${{ !github.event.repository.private }}
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ steps.pack.outputs.archive }}
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARCHIVE: ${{ steps.pack.outputs.archive }}
+          SIZE: ${{ steps.pack.outputs.size }}
+          SHA: ${{ steps.pin.outputs.sha }}
+          TAG: engine-${{ steps.pin.outputs.short }}
+        run: |
+          digest=$(cut -d' ' -f1 "$ARCHIVE.sha256")
+          gh release create "$TAG" "$ARCHIVE" "$ARCHIVE.sha256" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "ds4 engine $TAG (darwin-arm64)" \
+            --notes "Unofficial build of antirez/ds4 at $SHA, made by this repository's workflow with NATIVE_CPU_FLAG=$CPU_FLAG. sha256 $digest, $SIZE bytes."
+          echo "### catalog.json engine entry" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo '```json'
+            echo "\"url\": \"https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$ARCHIVE\","
+            echo "\"sha256\": \"$digest\","
+            echo "\"size_bytes\": $SIZE"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

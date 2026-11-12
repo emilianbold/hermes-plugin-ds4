@@ -1,0 +1,7 @@
+{
+  "name": "ds4",
+  "label": "Local Models · DwarfStar",
+  "description": "Install the ds4 engine, manage its models and run ds4-server from Hermes.",
+  "version": "0.2.0",
+  "api": "plugin_api.py"
+}

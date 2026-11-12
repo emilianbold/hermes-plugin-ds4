@@ -1,0 +1,24 @@
+ds4-server (unofficial build)
+============================
+
+This archive holds a build of ds4-server from https://github.com/antirez/ds4
+at commit @COMMIT@, made by GitHub Actions for the hermes-plugin-ds4
+plugin. It is not made, signed or endorsed by the ds4 project.
+
+ds4 is under the MIT license; see the LICENSE file in this archive
+(Copyright (c) 2026 The ds4.c authors, Copyright (c) 2023-2026 The ggml
+authors, Copyright (c) 2023 DeepSeek). metal/ holds ds4's Metal kernel
+sources, which ds4-server reads at run time; their notices are kept as
+written.
+
+Components compiled into ds4-server that are under their own licenses:
+
+* rax.c, rax.h: a radix tree implementation by Salvatore Sanfilippo,
+  BSD 3-Clause license. The complete notice is in
+  licenses/rax-BSD-3-Clause.txt, copied verbatim from the header of rax.c.
+
+* third_party/iris: image decoding headers (jpeg.h, png.h) by Salvatore
+  Sanfilippo, MIT license. See third_party/iris/LICENSE.
+
+The DeepSeek model files ds4-server loads are not part of this archive and
+are governed by their own license.

@@ -1,0 +1,50 @@
+Third-party notices
+
+This plugin is licensed under the MIT License in the LICENSE file. It reuses
+material from the following project, whose licence requires its notice to stay
+with copies of that material.
+
+
+Hermes Agent
+https://github.com/NousResearch/hermes-agent
+
+What is reused: the wording of the settings page in desktop/plugin.js (button
+names, status labels, toasts, confirmation texts such as "Fits your GPU",
+"Unified memory", "Set up for me", "Let me choose"), taken from Hermes Desktop's
+Settings → Providers → Local Models page so that the two pages read the same,
+and the layout of that page, which the plugin follows row for row. The plugin
+also imports Hermes Agent and its Desktop plugin SDK at run time; those are not
+part of this repository.
+
+MIT License
+
+Copyright (c) 2025 Nous Research
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+Not included in this repository
+
+ds4 / DwarfStar (https://github.com/antirez/ds4, MIT) and the DeepSeek model
+files are not in this repository. The plugin downloads a build of ds4 (made by
+this repository's GitHub workflow from ds4's source at a pinned commit; every
+such archive carries ds4's LICENSE, a NOTICE, and the notices of the parts
+compiled into ds4-server: see .github/engine-NOTICE.txt), or fetches ds4's
+source and builds it on your Mac, and downloads model files from Hugging Face
+when you ask it to. Each stays under its own licence; see the README.
