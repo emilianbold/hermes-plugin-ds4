@@ -12,7 +12,8 @@
     "ds4 only runs its own GGUFs, so this list is short and follows https://dwarfstar.sh/hardware/.",
     "resident_gib is ds4's own memory plan (`ds4: memory: ... planned`) at the launch context; measured is true when it was read from a real run.",
     "recommended_ram_gib is [from, up to): the machine memory class this model is the suggestion for. min_ram_gib: the least memory it is worth offering on.",
-    "revision pins the Hugging Face repo commit the size and SHA-256 were read from."
+    "revision pins the Hugging Face repo commit the size and SHA-256 were read from.",
+    "license is shown on every model as a tag: green with its name when it is plain MIT, amber \"Custom license\" when custom is true. The hover only says some commercial use has terms; the README has them."
   ],
   "models": [
     {
@@ -28,6 +29,7 @@
       "resident_gib": 83.5,
       "measured": true,
       "recommended_ram_gib": [96, 256],
+      "license": {"name": "MIT"},
       "launch": {"ctx": 100000, "args": []}
     },
     {
@@ -43,6 +45,7 @@
       "resident_gib": 93.3,
       "measured": true,
       "streaming": true,
+      "license": {"name": "MIT"},
       "launch": {"ctx": 100000, "args": ["--ssd-streaming"]}
     },
     {
@@ -58,7 +61,39 @@
       "resident_gib": 156,
       "measured": false,
       "recommended_ram_gib": [256, null],
+      "license": {"name": "MIT"},
       "launch": {"ctx": 100000, "args": []}
+    },
+    {
+      "id": "glm53-q2",
+      "name": "GLM 5.3 Flash (Q2)",
+      "description": "A different model family: about 90 GiB, fully in memory. For Macs with 128 GB.",
+      "origin": "GLM 5.3 Flash by Z.ai (MIT), quantised by antirez for ds4",
+      "repo": "antirez/glm-5.3-flash-gguf",
+      "revision": "b2fa29d7a6b410db11221c904973967b80b760f5",
+      "file": "GLM-5.3-Flash-Q2.gguf",
+      "size_bytes": 96505816384,
+      "sha256": "e81fd6241c6e55a64e1e14e47a3eab61a173fa8d7e4b5c1d1848827119705b32",
+      "resident_gib": 94.1,
+      "measured": true,
+      "license": {"name": "MIT"},
+      "launch": {"ctx": 100000, "args": []}
+    },
+    {
+      "id": "qwen38-q2",
+      "name": "Qwen3.8 Flash Next (Q2)",
+      "description": "ds4's suggestion for 64 GB Macs. It reads a 95 GiB table from your SSD while it runs, so keep it on a fast local SSD.",
+      "origin": "Qwen3.8 Flash Next by Qwen (Qwen Community License 1.0), quantised by antirez for ds4",
+      "repo": "antirez/qwen3.8-flash-next-gguf",
+      "revision": "d600fe1a43d2e1cdcadb85144ce3142f66f9eefe",
+      "file": "Qwen3.8-Flash-Next-Q2.gguf",
+      "size_bytes": 147207127040,
+      "sha256": "b1b93fa69aca5f187b0fb813aca8f3ec1beb5cf8cf0bd38cf041b93e0b6ccac9",
+      "resident_gib": 47,
+      "measured": false,
+      "recommended_ram_gib": [64, 96],
+      "license": {"name": "Qwen Community License 1.0", "custom": true},
+      "launch": {"ctx": 65536, "args": ["--prefill-chunk", "1024"]}
     }
   ]
 }

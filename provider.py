@@ -177,7 +177,7 @@ class Ds4Profile(ProviderProfile):
             name=NAME,
             aliases=ALIASES,
             display_name="DwarfStar (ds4)",
-            description="ds4-server on this machine: DeepSeek V4 Flash and V4.1 Flash (no API key)",
+            description="ds4-server on this machine: DeepSeek V4 Flash and V4.1 Flash, GLM 5.3 Flash, Qwen3.8 Flash Next (no API key)",
             signup_url="https://github.com/antirez/ds4",
             env_vars=(API_KEY_ENV, BASE_URL_ENV),
             base_url=server.DEFAULT_BASE_URL,

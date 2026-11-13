@@ -818,7 +818,7 @@ def status() -> dict:
             "id": model_id, "name": entry.get("name", model_id),
             "description": entry.get("description", ""),
             # Where a catalog model comes from, shown on hover.
-            "origin": entry.get("origin"), "repo": entry.get("repo"),
+            "origin": entry.get("origin"), "repo": entry.get("repo"), "license": entry.get("license"),
             "size_bytes": size,
             # A file the user added has no memory plan to judge: it is never blocked.
             "fit_known": resident is not None, "fits": True if resident is None else fits(resident),

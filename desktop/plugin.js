@@ -37,7 +37,7 @@ const copy = {
   recommended: 'Recommended',
   recommendedReason: 'The model ds4\'s hardware guide suggests for this machine\'s memory.',
   noRecommendationTitle: 'No automatic recommendation for this machine',
-  noRecommendationDetail: 'ds4\'s hardware guide suggests DeepSeek V4 Flash from 96 GB of memory. For a 64 GB Mac it points to Qwen3.8 Q2, which this list does not offer yet. You can still choose a model below or add a file you have.',
+  noRecommendationDetail: 'ds4\'s hardware guide suggests Qwen3.8 Flash Next from 64 GB of memory and DeepSeek V4 Flash from 96 GB. This Mac has less. You can still choose a model below or add a file you have.',
   downloadAction: size => `Download · ${size}`,
   downloadStatusRunning: 'Downloading',
   downloadProgress: (done, total) => `${done} of ${total}`,
@@ -128,6 +128,10 @@ const copy = {
   storageCleared: freed => `Freed ${gb(freed)}.`,
   storageClearFailed: 'Could not free the space',
   originTip: (origin, repo) => `${origin}. Downloaded from Hugging Face: ${repo}.`,
+  customLicense: 'Custom license',
+  licenseTip: license => (license.custom
+    ? `${license.name}. Some commercial use has terms: read the license.`
+    : `${license.name} license.`),
   linkedTip: path => `${path ? `Linked to ${path}. ` : ''}Hermes never copies or deletes this file.`
 }
 
@@ -348,7 +352,13 @@ function ModelRow({ model, job, runtimeInstalled, loaded, ramBytes, busy, anyAct
       : jsx(Tip, { label: `Runs entirely in memory: about ${gb(model.resident_bytes)} at a ${context} context.`,
         children: jsxs(Pill, { tone: 'success', children: [ico('Cpu', 'mr-1 size-3'), copy.pillFitsGpu] }) })
 
-  const showPills = fitPill || model.state === 'linked'
+  // Every download shows its license first: plain MIT in green, anything custom in amber with the terms on hover.
+  const licensePill = model.license
+    ? jsx(Tip, { label: copy.licenseTip(model.license), children:
+      jsx(Pill, { tone: model.license.custom ? 'warn' : 'success', children: model.license.custom ? copy.customLicense : model.license.name }) })
+    : null
+
+  const showPills = fitPill || licensePill || model.state === 'linked'
 
   const nameLabel = model.origin
     ? jsx(Tip, { label: copy.originTip(model.origin, model.repo), children: jsx('span', { children: model.name }) })
@@ -358,7 +368,7 @@ function ModelRow({ model, job, runtimeInstalled, loaded, ramBytes, busy, anyAct
     action, below,
     description: jsxs('span', { children: [
       model.description,
-      showPills && jsxs('span', { className: 'mt-1.5 flex flex-wrap items-center gap-1.5', children: [fitPill, jsx(LinkedPill, { model })] })
+      showPills && jsxs('span', { className: 'mt-1.5 flex flex-wrap items-center gap-1.5', children: [fitPill, licensePill, jsx(LinkedPill, { model })] })
     ] }),
     title: jsxs('span', { className: 'inline-flex items-center gap-2', children: [
       nameLabel,

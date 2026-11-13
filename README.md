@@ -99,9 +99,13 @@ ask, and each part stays under its own licence.
 | ds4 engine | [github.com/antirez/ds4](https://github.com/antirez/ds4), at one pinned commit | MIT (with small BSD-3 and MIT parts) | A small archive (about 2 MB) that this repository's GitHub workflow built from that commit, checked against the SHA-256 in `catalog.json`; the licences of everything compiled into it travel inside (`LICENSE`, `NOTICE`, `licenses/`, `third_party/`). ds4 itself publishes no binaries; nothing is compiled on your Mac. |
 | DeepSeek V4 Flash (Q2, Q4) | Hugging Face, [antirez/deepseek-v4-gguf](https://huggingface.co/antirez/deepseek-v4-gguf) | MIT (model card) | DeepSeek's model, quantised by antirez. Downloaded at a pinned revision, checked against the SHA-256 in `catalog.json`. |
 | DeepSeek V4.1 Flash (Q2) | Hugging Face, [antirez/deepseek-v4.1-flash-gguf](https://huggingface.co/antirez/deepseek-v4.1-flash-gguf) | MIT (model card) | As above. |
+| GLM 5.3 Flash (Q2) | Hugging Face, [antirez/glm-5.3-flash-gguf](https://huggingface.co/antirez/glm-5.3-flash-gguf) | MIT (the original model, [zai-org/GLM-5.3-Flash](https://huggingface.co/zai-org/GLM-5.3-Flash); the quantised repository has no card of its own) | Z.ai's model, quantised by antirez. As above. |
+| Qwen3.8 Flash Next (Q2) | Hugging Face, [antirez/qwen3.8-flash-next-gguf](https://huggingface.co/antirez/qwen3.8-flash-next-gguf) | **Qwen Community License 1.0, not MIT** (model card and the repository's `LICENSE`) | Qwen's model, quantised by antirez. As above. The licence is MIT-like with two conditions: products with over 100 million monthly users or US$20 million monthly revenue must display the model name, and a business that offers model access as a service or an AI coding or office assistant needs a separate licence from Qwen (your own use is not affected). Read it before commercial use. |
 
-The licences are what the model cards state. Read them before you redistribute
-anything. A `.gguf` you add yourself is yours and is never copied or deleted.
+The licences are what the model cards state. The settings page tags every model
+with its licence before you download it: MIT in green, and "Custom license" in amber
+where the terms go beyond MIT (hover for a note; the full text is in the model's Hugging Face repository, named when you hover its name). Read
+them before you redistribute anything. A `.gguf` you add yourself is yours and is never copied or deleted.
 [NOTICE](NOTICE) carries the notice for the Hermes Agent wording this plugin
 reuses.
 
@@ -143,13 +147,15 @@ reuses.
 ## Limits
 
 - The managed runtime is macOS on Apple Silicon only.
-- The list is ds4's own, short: DeepSeek V4 Flash Q2 (the suggestion for 96 to
-  255 GB Macs, as in ds4's hardware guide), V4.1 Flash Q2 (streams its experts
-  from the SSD; measured on a 128 GB Mac) and V4 Flash Q4 (for 256 GB and up,
-  following ds4's table). ds4 also supports other models, such as Qwen3.8 for
-  64 GB Macs; they are not offered here until they are measured at the 64K
-  context Hermes needs. A `.gguf` you add yourself is never blocked, and is
-  recognised by its size.
+- The list is ds4's own, short, and the suggestion follows ds4's hardware
+  guide: Qwen3.8 Flash Next Q2 for 64 to 95 GB Macs, DeepSeek V4 Flash Q2 for
+  96 to 255 GB, V4 Flash Q4 from 256 GB. V4.1 Flash Q2 (streams its experts
+  from the SSD) and GLM 5.3 Flash Q2 (about 94 GiB planned, so a 128 GB Mac)
+  are offered but never suggested. V4 Flash Q2, V4.1 and GLM were measured on a
+  128 GB Mac; V4 Flash Q4 and Qwen3.8 were not, and rely on ds4's own guidance
+  and on your feedback. The Qwen entry starts with a 64K context, the least
+  Hermes accepts, because it is meant for 64 GB Macs. A `.gguf` you add
+  yourself is never blocked, and is recognised by its size.
 - "Fits this Mac" compares ds4's own memory plan with this Mac's memory, not the
   file size: V4.1 Q2 is a 341 GiB file that plans about 93 GiB.
 - The settings page is under Settings → Plugins, not inside the built-in
