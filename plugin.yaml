@@ -1,7 +1,7 @@
 name: ds4
 kind: model-provider
 version: "0.2.0"
-description: Managed ds4 (antirez/ds4, DwarfStar) runtime for Hermes Desktop on Apple Silicon - builds the engine, manages its models, runs ds4-server. Also attaches to a ds4-server you run yourself.
+description: Managed ds4 (antirez/ds4, DwarfStar) runtime for Hermes Desktop on Apple Silicon - installs the engine, manages its models, runs ds4-server. Also attaches to a ds4-server you run yourself.
 author: Emilian Bold
 license: MIT
 requires_hermes: ">=0.23.0"

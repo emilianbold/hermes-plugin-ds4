@@ -2,15 +2,19 @@
 
 Everything lives in the active profile's ``plugin-data/ds4/``:
 
-    engine/<commit>/     the ds4 source at the pinned commit, built in place
+    engine/<commit12>/   ds4-server for the pinned commit (first 12 characters of it)
     models/<id>.gguf     downloaded models, and links to files added from disk
     kv/                  ds4-server's disk KV checkpoints
-    preferences.json     {enabled, active, ctx}
+    preferences.json     {enabled, active, ctx, served}
     server.json          the ds4-server this plugin started
+    *.log, *.lock        the server and engine logs; the cross-process locks
 
 Importing this module, reading status and listing models start nothing and
-download nothing. The engine is built from source because ds4 publishes no
-binaries; the pin below is the one commit this plugin was tested with.
+download nothing. ds4 publishes no binaries of its own: the engine is the
+archive that this plugin's repository builds for the pinned commit in GitHub
+Actions (catalog.json lists its URL, size and SHA-256). It is downloaded and
+checked, never built on the user's Mac. The pin below is the one commit this
+plugin was tested with.
 """
 
 from __future__ import annotations
@@ -39,7 +43,6 @@ from typing import Callable
 
 from . import server
 
-ENGINE_REPO = "https://github.com/antirez/ds4"
 ENGINE_COMMIT = "b3f50180ec2c7324892be1f50bc83555ccb8d5e7"
 CATALOG_PATH = Path(__file__).with_name("catalog.json")
 
@@ -51,7 +54,8 @@ KV_DISK_MB = 8192
 OS_RESERVE_BYTES = 8 * 2**30
 MAX_DOWNLOAD_FAILURES = 6      # consecutive requests that made no progress
 RETRY_BACKOFF_S = 2.0          # doubled per failure, up to 16x
-START_TIMEOUT_S = 900          # an 80 GB model read from a cold disk takes minutes
+START_TIMEOUT_S = 840          # an 80 GB model read from a cold disk takes minutes. Kept under Hermes' 900 s
+                               # stale-stream limit for local servers, so our "did not finish loading" wins.
 _MODEL_ID = re.compile(r"[a-z0-9][a-z0-9._-]{0,63}")
 
 
@@ -167,25 +171,11 @@ def _run(command: list[str], cwd: Path, log, timeout: int) -> None:
         raise RuntimeError(f"`{' '.join(command[:2])}` failed; see {log.name}")
 
 
-def _missing_build_tools() -> list[str]:
-    """What is needed to build ds4 and not there. On a Mac `git`, `make` and `cc` exist as stubs
-    even without Apple's Command Line Tools (running one opens an install dialog and fails), so
-    `shutil.which` alone says "fine"; `xcode-select -p` is the real answer."""
-    if platform.system() == "Darwin":
-        try:
-            installed = subprocess.run(["xcode-select", "-p"], capture_output=True, timeout=10).returncode == 0
-        except (OSError, subprocess.SubprocessError):
-            installed = False
-        if not installed:
-            return ["Apple's Command Line Tools"]
-    return [tool for tool in ("git", "make", "cc") if not shutil.which(tool)]
-
-
 ENGINE_ARCHIVE_MAX_BYTES = 200 * 2**20     # the real archive is a few MB; this only bounds a hostile one
 
 
 def _engine_asset() -> dict | None:
-    """The prebuilt engine catalog.json lists for the pinned commit and this Mac, if any. An entry
+    """The engine archive catalog.json lists for the pinned commit and this Mac, if any. An entry
     for another commit is ignored: the archive must be the build of exactly what ENGINE_COMMIT pins."""
     data = json.loads(CATALOG_PATH.read_text()).get("engine") or {}
     asset = data.get("darwin-arm64") or {}
@@ -221,9 +211,9 @@ def _unpack_engine(archive: Path, staging: Path) -> None:
     archive.unlink()
 
 
-def _install_prebuilt(asset: dict, staging: Path, log, say: Callable[[str], None]) -> None:
+def _install_archive(asset: dict, staging: Path, log, say: Callable[[str], None]) -> None:
     """Download the engine archive catalog.json lists, check its size and SHA-256, unpack it into
-    *staging* and run it once. Raises on any doubt: the caller then builds from source."""
+    *staging* and run it once. Raises on any doubt."""
     size, want = int(asset["size_bytes"]), str(asset["sha256"])
     if not 0 < size <= ENGINE_ARCHIVE_MAX_BYTES:
         raise RuntimeError("catalog.json gives the engine archive an impossible size")
@@ -250,26 +240,18 @@ def _install_prebuilt(asset: dict, staging: Path, log, say: Callable[[str], None
     _run([str(binary), "--help"], staging, log, 60)
 
 
-def _build_from_source(staging: Path, log, say: Callable[[str], None]) -> None:
-    say("Fetching ds4")
-    _run(["git", "init", "-q"], staging, log, 60)
-    # Fetching by commit id makes git verify the content against the pin.
-    _run(["git", "fetch", "-q", "--depth", "1", ENGINE_REPO, ENGINE_COMMIT], staging, log, 600)
-    _run(["git", "checkout", "-q", "--detach", "FETCH_HEAD"], staging, log, 120)
-    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=staging, capture_output=True, text=True)
-    if head.stdout.strip() != ENGINE_COMMIT:
-        raise RuntimeError("The fetched ds4 source is not the pinned commit")
-    say("Building ds4-server")
-    _run(["make", f"-j{os.cpu_count() or 4}", "ds4-server"], staging, log, 1800)
-    _run([str(staging / "ds4-server"), "--help"], staging, log, 60)
-
-
 def install_engine(progress: Callable[[str], None] | None = None) -> None:
-    """Install ds4-server for the pinned commit: the prebuilt archive from catalog.json when there is
-    one and it checks out, otherwise built from source. A no-op when already installed."""
+    """Install ds4-server for the pinned commit from the archive catalog.json lists: downloaded,
+    checked against its size and SHA-256, unpacked and run once. A no-op when already installed.
+    Any failure ends in one clear RuntimeError and leaves nothing half installed."""
     say = progress or (lambda _phase: None)
     if not supported():
         raise RuntimeError("The managed ds4 engine needs a Mac with Apple Silicon")
+    if engine_installed():
+        return
+    asset = _engine_asset()
+    if asset is None:
+        raise RuntimeError("This version of the plugin lists no ds4 engine for this Mac. Update the plugin and try again.")
     with _exclusive("engine"):
         if engine_installed():
             return
@@ -278,27 +260,13 @@ def install_engine(progress: Callable[[str], None] | None = None) -> None:
         staging = Path(tempfile.mkdtemp(prefix=".build-", dir=target.parent))
         try:
             with open(root() / "engine-build.log", "w") as log:
-                prebuilt_error: Exception | None = None
-                installed = False
-                asset = _engine_asset()
-                if asset:
-                    try:
-                        _install_prebuilt(asset, staging, log, say)
-                        installed = True
-                    except (OSError, ValueError, KeyError, RuntimeError, tarfile.TarError,
-                            subprocess.SubprocessError) as exc:
-                        prebuilt_error = exc
-                        log.write(f"The prebuilt engine could not be used: {exc}\nBuilding it from source instead.\n")
-                        log.flush()
-                        for leftover in staging.iterdir():
-                            shutil.rmtree(leftover) if leftover.is_dir() else leftover.unlink()
-                if not installed:
-                    missing = _missing_build_tools()
-                    if missing:
-                        why = f"The prebuilt engine could not be used ({prebuilt_error}), and building" if prebuilt_error else "Building"
-                        raise RuntimeError(f"{why} ds4 needs {', '.join(missing)}. Install Apple's "
-                                           "Command Line Tools with `xcode-select --install`, then try again.")
-                    _build_from_source(staging, log, say)
+                try:
+                    _install_archive(asset, staging, log, say)
+                except (OSError, ValueError, KeyError, RuntimeError, tarfile.TarError, http.client.HTTPException,
+                        subprocess.SubprocessError) as exc:
+                    log.write(f"The engine could not be installed: {exc}\n")
+                    raise RuntimeError(f"Could not install the ds4 engine: {exc}. Check your connection and try "
+                                       f"again; details are in {log.name}") from exc
             staging.rename(target)
         finally:
             shutil.rmtree(staging, ignore_errors=True)
@@ -567,8 +535,10 @@ def _empty(path: Path) -> None:
 
 
 def _remove_downloaded_models(*, links_too: bool) -> int:
-    """Delete the model files this plugin downloaded (and unfinished downloads); return the bytes freed.
-    A link to a file the user added is theirs: it goes only when *links_too*, and its target never does."""
+    """Delete the model files in the library (finished downloads and unfinished ``.part`` files) and
+    return the bytes freed. Every regular file in the folder goes, whoever put it there: the plugin
+    owns the folder and downloads are the supported way in; a file the user wants kept is added with
+    ``link``. A link is theirs: it goes only when *links_too*, and its target never does."""
     freed = 0
     if not models_dir().is_dir():
         return 0
@@ -625,9 +595,21 @@ def clear_storage(what: str) -> int:
                     freed += _size(root() / name)
                 for name in ("server.log", "engine-build.log", "preferences.json", "server.json", "activity"):
                     (root() / name).unlink(missing_ok=True)
-            elif what in ("models", "engine"):
-                # Nothing left to load: the runtime goes back to off, and a model that is gone is not the default.
-                set_preferences(enabled=False, **({"active": None} if what == "models" else {}))
+            elif what == "engine":
+                set_preferences(enabled=False)       # nothing can load without the engine
+            elif preferences()["active"] not in library():
+                # The default model was one of those removed: it is not the default any more and the
+                # runtime goes back to off. A linked file survives, and so does its place as the default.
+                set_preferences(enabled=False, active=None)
+    if what == "all":
+        # The locks are released now. Without them and with every folder emptied, the plugin's own
+        # folder is empty: remove it, so that uninstalling the plugin leaves nothing behind.
+        for lock in root().glob("*.lock"):
+            lock.unlink(missing_ok=True)
+        try:
+            root().rmdir()
+        except OSError:
+            pass                                 # something else lives there: not ours to delete
     return freed
 
 
@@ -798,6 +780,8 @@ def activate(model_id: str) -> dict:
     running server's state plus ``served``: the model ids it answers under."""
     state = start(model_id)
     served = [model.id for model in server.fetch(base_url()).models]
+    if not served:      # it answered a moment ago: say what is wrong rather than save an empty answer
+        raise RuntimeError("ds4-server started, but did not say which model it serves. Try again.")
     set_preferences(enabled=True, active=model_id, served=served)
     return {**state, "served": served}
 
@@ -850,9 +834,7 @@ def status() -> dict:
         })
     return {
         "supported": supported(), "ram_bytes": ram, "enabled": prefs["enabled"], "ctx": prefs["ctx"],
-        "engine": {"installed": engine_installed(), "commit": ENGINE_COMMIT[:12],
-                   # Whether setup downloads a ready-made engine (a few MB) or builds it (needs the Command Line Tools).
-                   "prebuilt": _engine_asset() is not None},
+        "engine": {"installed": engine_installed(), "commit": ENGINE_COMMIT[:12]},
         "server": {"running": state is not None, "model": state["model"] if state else None,
                    "base_url": base_url(), "ctx": state["ctx"] if state else None},
         "models": models, "models_dir": str(models_dir()), "storage": storage(),

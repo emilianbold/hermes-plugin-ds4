@@ -23,9 +23,7 @@ const copy = {
   runtimeInstalledDetail: (tag, backend) => `Build ${tag}, ${backend} backend. Hermes starts and manages the server for you.`,
   runtimeRunningDetail: 'The local server is running. Turning it off frees all GPU memory and stops new chats from using local models until you turn it back on.',
   installTitle: 'Install the local runtime',
-  installDetail: prebuilt => (prebuilt
-    ? 'Downloads the ds4 inference engine (a few MB). Models you download run entirely on this machine — no account, nothing leaves your computer.'
-    : 'Builds the ds4 inference engine from its source (about a minute; needs Apple\'s Command Line Tools). Models you download run entirely on this machine — no account, nothing leaves your computer.'),
+  installDetail: 'Downloads the ds4 inference engine (a few MB). Models you download run entirely on this machine — no account, nothing leaves your computer.',
   installAction: 'Install runtime',
   installing: 'Installing runtime…',
   installFailed: 'Runtime install failed',
@@ -591,7 +589,7 @@ function Page({ ctx, connectionId, profile, epoch }) {
             description: installJob.message || copy.installing,
             below: jsx(DownloadProgress, { job: installJob })
           }) : jsx(ListRow, {
-            title: copy.installTitle, description: copy.installDetail(data.engine.prebuilt),
+            title: copy.installTitle, description: copy.installDetail,
             action: jsxs(Button, { size: 'sm', disabled: busy, onClick: () => run('/engine/install'), children: [ico('Download'), copy.installAction] })
           }),
           data.engine.installed && jsx(ListRow, {

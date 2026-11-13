@@ -2,7 +2,7 @@
 
 A community plugin that runs [ds4](https://github.com/antirez/ds4) models from
 [Hermes Agent](https://github.com/NousResearch/hermes-agent) the way Hermes
-runs llama.cpp models: it builds the engine, keeps a library of models,
+runs llama.cpp models: it installs the engine, keeps a library of models,
 starts and stops the server, and a model is one click away. No Hermes fork and
 no core patches.
 
@@ -22,8 +22,6 @@ agents and checked with tests and by running it against a real ds4-server.
   DeepSeek V4 Flash Q2 from 96 GB of memory. It plans about 84 GiB of it.
 - **Disk.** About 87 GB free for the default model (the V4.1 model is 366 GB
   and streams from the SSD).
-- **Apple's Command Line Tools** (`xcode-select --install`), only if the
-  engine cannot be downloaded: setup then builds ds4 on your Mac.
 
 ## Install
 
@@ -48,7 +46,7 @@ then `hermes plugins enable ds4`. Do not copy the folder into
 one also has a Python half.
 
 **From the terminal.** `hermes model` lists DwarfStar (ds4) and uses the model
-the settings page set up; the terminal cannot build the engine or download a
+the settings page set up; the terminal cannot install the engine or download a
 model. If it asks for an API key, any value works: ds4-server has no
 authentication.
 
@@ -98,7 +96,7 @@ ask, and each part stays under its own licence.
 
 | What | From | Licence | How |
 |---|---|---|---|
-| ds4 engine | [github.com/antirez/ds4](https://github.com/antirez/ds4), at one pinned commit | MIT (with small BSD-3 and MIT parts) | A small archive (about 2 MB) that this repository's GitHub workflow built from that commit, checked against the SHA-256 in `catalog.json`; the licences of everything compiled into it travel inside (`LICENSE`, `NOTICE`, `licenses/`, `third_party/`). If the archive is unavailable, the source is fetched with git and built on your Mac with `make`. ds4 itself publishes no binaries. |
+| ds4 engine | [github.com/antirez/ds4](https://github.com/antirez/ds4), at one pinned commit | MIT (with small BSD-3 and MIT parts) | A small archive (about 2 MB) that this repository's GitHub workflow built from that commit, checked against the SHA-256 in `catalog.json`; the licences of everything compiled into it travel inside (`LICENSE`, `NOTICE`, `licenses/`, `third_party/`). ds4 itself publishes no binaries; nothing is compiled on your Mac. |
 | DeepSeek V4 Flash (Q2, Q4) | Hugging Face, [antirez/deepseek-v4-gguf](https://huggingface.co/antirez/deepseek-v4-gguf) | MIT (model card) | DeepSeek's model, quantised by antirez. Downloaded at a pinned revision, checked against the SHA-256 in `catalog.json`. |
 | DeepSeek V4.1 Flash (Q2) | Hugging Face, [antirez/deepseek-v4.1-flash-gguf](https://huggingface.co/antirez/deepseek-v4.1-flash-gguf) | MIT (model card) | As above. |
 
@@ -115,9 +113,8 @@ reuses.
   and SHA-256, unpacks it and runs it once. Each archive also has a GitHub
   build attestation: `gh attestation verify <archive> --repo
   emilianbold/hermes-plugin-ds4` shows which workflow run built it. If the
-  download is unavailable or does not check out, setup fetches ds4 at the
-  pinned commit (the fetch is by commit id, so git checks the content) and
-  runs `make ds4-server`. Nothing is installed until you ask.
+  download fails or does not check out, nothing is installed and setup says
+  so; the engine is never built on your Mac. Nothing is installed until you ask.
 - **Models.** Downloads the files you choose, resuming and retrying if the
   connection drops, and publishes a file only when its size and SHA-256 match
   `catalog.json`.

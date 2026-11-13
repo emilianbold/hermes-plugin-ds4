@@ -180,7 +180,7 @@ def create_router(runtime=None, save_default_model=_save_default_model) -> APIRo
 
     @api.post("/quickstart")
     def quickstart(body: ModelBody):
-        """Everything from nothing: build the engine, download the model, load it, make it the default."""
+        """Everything from nothing: install the engine, download the model, load it, make it the default."""
         def action(job: dict, cancel: threading.Event) -> None:
             install(job)
             if body.model_id not in rt().library():

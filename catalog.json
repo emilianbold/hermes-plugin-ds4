@@ -43,7 +43,7 @@
       "resident_gib": 93.3,
       "measured": true,
       "streaming": true,
-      "launch": {"ctx": 65536, "args": ["--ssd-streaming"]}
+      "launch": {"ctx": 100000, "args": ["--ssd-streaming"]}
     },
     {
       "id": "ds4f-q4",
