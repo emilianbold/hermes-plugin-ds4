@@ -71,6 +71,10 @@ Providers → Local Models (same rows, wording, icons, pills and toasts):
   the prompt cache would otherwise stay on your disk. Files you added from
   disk are never deleted.
 
+![The settings page: the local runtime, this machine and the model list](screenshots/desktop.png)
+
+![The settings page, further down: Find more models and Storage](screenshots/desktop-storage.png)
+
 **A provider**, `ds4` ("DwarfStar (ds4)" in the model picker):
 
 - Models and the context window come from the running server.
