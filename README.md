@@ -127,7 +127,9 @@ reuses.
   connection drops, and publishes a file only when its size and SHA-256 match
   `catalog.json`.
 - **Server.** Runs `ds4-server` on a fixed loopback port per profile with a
-  disk KV cache of up to 8 GiB. Each catalog model starts with its own recipe
+  disk KV cache of up to 8 GiB. It is started with a short environment (`PATH`,
+  `HOME`, the locale, and ds4's own `DS4_*` tuning variables), not Hermes' own,
+  so it never sees your provider keys. Each catalog model starts with its own recipe
   (context and flags such as `--ssd-streaming`); a file you added starts with
   `--ctx 100000`. ds4-server has no authentication, so any program on this Mac
   can use that port, unlike the llama.cpp and oMLX servers, which Hermes starts

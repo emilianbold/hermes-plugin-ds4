@@ -162,11 +162,26 @@ def engine_installed() -> bool:
     return server_bin().is_file()
 
 
+# What ds4-server is started with. It is third-party code, and Hermes' own environment holds every
+# provider key loaded from the profile's .env, so the engine gets a short list instead of a copy.
+_ENGINE_ENV_NAMES = frozenset({"PATH", "HOME", "TMPDIR", "USER", "LOGNAME", "LANG"})
+_ENGINE_ENV_PREFIXES = ("LC_", "DS4_", "MTL_")      # locale; ds4's own tuning switches; Metal's
+_ENGINE_ENV_NEVER = frozenset({"DS4_API_KEY", "DS4_BASE_URL"})   # this plugin's own settings: a proxy's key and address
+
+
+def engine_env() -> dict[str, str]:
+    """The environment for ds4-server: the basics, the locale, and ds4's and Metal's own variables.
+    ds4-server reads nothing else (at the pinned commit every ``getenv`` in it is a ``DS4_`` name)."""
+    return {name: value for name, value in os.environ.items()
+            if name not in _ENGINE_ENV_NEVER
+            and (name in _ENGINE_ENV_NAMES or name.startswith(_ENGINE_ENV_PREFIXES))}
+
+
 def _run(command: list[str], cwd: Path, log, timeout: int) -> None:
     log.write(f"$ {' '.join(command)}\n")
     log.flush()
     done = subprocess.run(command, cwd=cwd, stdout=log, stderr=subprocess.STDOUT,
-                          stdin=subprocess.DEVNULL, timeout=timeout)
+                          stdin=subprocess.DEVNULL, timeout=timeout, env=engine_env())
     if done.returncode:
         raise RuntimeError(f"`{' '.join(command[:2])}` failed; see {log.name}")
 
@@ -666,7 +681,7 @@ def start(model_id: str | None = None) -> dict:
             log.write(f"\n$ {' '.join(command)}\n".encode())
             log.flush()
             child = subprocess.Popen(command, cwd=engine_dir(), stdin=subprocess.DEVNULL, stdout=log,
-                                     stderr=log, start_new_session=True)
+                                     stderr=log, start_new_session=True, env=engine_env())
         state = {"pid": child.pid, "create_time": psutil.Process(child.pid).create_time(),
                  "model": model_id, "ctx": ctx, "base_url": base_url()}
         _write("server.json", state)
